@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: startup-probe-research
+spec:
+  selector:
+    matchLabels:
+      run: startup-probe-research
+  template:
+    metadata:
+      labels:
+        run: startup-probe-research
+    spec:
+      containers:
+        - name: startup-probe-research
+          image: nginx # Actually application image
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  echo "$(date) startupProbe start" >> /tmp/startupProbe-check
+                  if [ ! $(curl -s -w "%{http_code}\n" "http://localhost:80/" -o /dev/null) -eq 200 ]; then
+                    echo "$(date) startupProbe failed" >> /tmp/startupProbe-check
+                    exit 1
+                  fi
+                  echo "$(date) startupProbe warmup-start" >> /tmp/startupProbe-check
+                  curl "http://localhost:80/"
+                  sleep 40 # Actually warmup process
+                  echo "$(date) startupProbe warmup-end" >> /tmp/startupProbe-check
+            initialDelaySeconds: 50
+            periodSeconds: 10
+            timeoutSeconds: 95
+            successThreshold: 1
+            failureThreshold: 10
